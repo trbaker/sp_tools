@@ -197,10 +197,6 @@ footer{padding-top:22px;font-size:.78rem;color:var(--ink-faint);max-width:70ch}
 <section id="conn" hidden>
   <div class="conn-grid">
     <div class="field">
-      <label for="hostInput">Organization URL</label>
-      <input type="text" id="hostInput" spellcheck="false">
-    </div>
-    <div class="field">
       <label for="userInput">Username</label>
       <input type="text" id="userInput" autocomplete="username" spellcheck="false">
     </div>
@@ -245,7 +241,6 @@ footer{padding-top:22px;font-size:.78rem;color:var(--ink-faint);max-width:70ch}
 "use strict";
 
 var DAY = 86400000;
-var LS_HOST = "agolusage.host";
 var LS_ITEMS = "agolusage.items";
 var LS_SEED = "agolusage.seed";
 var SS_TOKEN = "agolusage.token";
@@ -262,8 +257,10 @@ var SEED_IDS = [
   "3dd4189f9ddd4c21a6cf21bbb36c3423"
 ];
 
+/* The one organization this dashboard reports on. */
+var HOST = "https://education.maps.arcgis.com";
+
 var state = {
-  host: "https://education.maps.arcgis.com",
   token: "",
   tokenExpires: 0,
   username: "",
@@ -302,19 +299,12 @@ function parseItemId(raw){
   var m = s.match(/[0-9a-f]{32}/i);
   return m ? m[0].toLowerCase() : null;
 }
-function parseHost(raw){
-  var s = String(raw||"").trim().replace(/\/+$/,"");
-  if(!s) return "https://education.maps.arcgis.com";
-  if(!/^https?:\/\//i.test(s)) s = "https://" + s;
-  return s.replace(/\/sharing.*$/i,"");
-}
-
 /* Views are the only metric this dashboard reports. */
 var ETYPE = "viewusg";
 
 /* ---------- network ---------- */
 function agolGet(path, params){
-  var url = state.host + "/sharing/rest" + path + "?f=json";
+  var url = HOST + "/sharing/rest" + path + "?f=json";
   Object.keys(params||{}).forEach(function(k){
     if(params[k] !== undefined && params[k] !== null && params[k] !== "")
       url += "&" + k + "=" + encodeURIComponent(params[k]);
@@ -336,7 +326,7 @@ function agolGet(path, params){
     return j;
   }).catch(function(err){
     if(err instanceof TypeError)
-      throw new Error("Could not reach " + state.host + ". Check the organization URL, and note that the browser blocks the request if your organization does not allow this page's origin.");
+      throw new Error("Could not reach " + HOST + ". The organization may be unreachable, or the browser blocked the request because the organization does not allow this page's origin.");
     throw err;
   });
 }
@@ -519,7 +509,7 @@ function render(){
 
     var max = gmax;
 
-    var itemUrl = state.host + "/home/item.html?id=" + it.id;
+    var itemUrl = HOST + "/home/item.html?id=" + it.id;
 
     var meta = [];
     if(it.type) meta.push(esc(it.type));
@@ -643,7 +633,7 @@ function requestToken(user, pass, client){
   } else {
     body.set("client","requestip");
   }
-  return fetch(state.host + "/sharing/rest/generateToken", {
+  return fetch(HOST + "/sharing/rest/generateToken", {
     method:"POST",
     headers:{"Content-Type":"application/x-www-form-urlencoded"},
     body: body.toString()
@@ -653,9 +643,6 @@ function requestToken(user, pass, client){
 function signIn(){
   var user = document.getElementById("userInput").value.trim();
   var pass = document.getElementById("passInput").value;
-  state.host = parseHost(document.getElementById("hostInput").value);
-  document.getElementById("hostInput").value = state.host;
-
   if(!user || !pass){
     setStatus("Enter both a username and a password.", "bad");
     return;
@@ -702,8 +689,8 @@ function signIn(){
     return loadAll();
   }).catch(function(err){
     if(err instanceof TypeError){
-      setStatus("Could not reach " + state.host + " to sign in. Check the organization URL, " +
-        "and note that the browser blocks the request if the organization does not allow this page's origin.", "bad");
+      setStatus("Could not reach " + HOST + " to sign in. The organization may be unreachable, " +
+        "or the browser blocked the request because the organization does not allow this page's origin.", "bad");
     } else {
       setStatus(err.message, "bad");
     }
@@ -742,7 +729,7 @@ document.getElementById("refreshBtn").addEventListener("click", loadAll);
 document.getElementById("connBtn").addEventListener("click", function(){
   var c = document.getElementById("conn");
   c.hidden = !c.hidden;
-  if(!c.hidden) document.getElementById("hostInput").focus();
+  if(!c.hidden) document.getElementById("userInput").focus();
 });
 document.getElementById("csvBtn").addEventListener("click", function(){
   var btn = this, text = toCsv();
@@ -755,12 +742,6 @@ document.getElementById("csvBtn").addEventListener("click", function(){
   } else { done(false); }
 });
 
-document.getElementById("hostInput").addEventListener("change", function(){
-  state.host = parseHost(this.value);
-  this.value = state.host;
-  writeLS(LS_HOST, state.host);
-  if(tokenValid()) loadAll();
-});
 document.getElementById("signinBtn").addEventListener("click", signIn);
 document.getElementById("signoutBtn").addEventListener("click", signOut);
 ["userInput","passInput"].forEach(function(id){
@@ -795,10 +776,6 @@ stripEl.addEventListener("click", function(e){
 });
 /* ---------- boot ---------- */
 (function init(){
-  var host = readLS(LS_HOST);
-  if(host) state.host = host;
-  document.getElementById("hostInput").value = state.host;
-
   var tok = readSS(SS_TOKEN);
   var exp = Number(readSS(SS_EXP) || 0);
   if(tok){
