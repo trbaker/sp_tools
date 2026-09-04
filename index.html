@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Education Item usage, last 30 days</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:light;
+  --paper:#f4f7f8;
+  --panel:#ffffff;
+  --ink:#12313a;
+  --ink-soft:#4d6c77;
+  --ink-faint:#7f979f;
+  --rule:#c8d7db;
+  --rule-soft:#e0e9eb;
+  --bar:#1d6b76;
+  --bar-dim:#cfdde0;
+  --up:#2c6f52;
+  --down:#a03a2e;
+  --field:#ffffff;
+  --shade:rgba(18,49,58,.05);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:Archivo,"Helvetica Neue",Helvetica,Arial,sans-serif;
+  font-size:15px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 64px}
+
+/* ---------- masthead ---------- */
+header{
+  display:flex;flex-wrap:wrap;align-items:baseline;
+  gap:8px 18px;
+  padding-bottom:14px;border-bottom:2px solid var(--ink);
+}
+h1{font-size:1.4rem;font-weight:700;letter-spacing:-.015em;margin:0}
+.window-note{color:var(--ink-soft);font-size:.85rem;margin-left:auto}
+.window-note b{font-weight:600;color:var(--ink)}
+
+/* ---------- controls ---------- */
+.bar{
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  padding:14px 0;border-bottom:1px solid var(--rule-soft);
+}
+input[type=text],input[type=password],select{
+  font:inherit;color:var(--ink);background:var(--field);
+  border:1px solid var(--rule);border-radius:3px;
+  padding:8px 10px;
+}
+input[type=text]:focus,input[type=password]:focus,select:focus,button:focus-visible{
+  outline:2px solid var(--bar);outline-offset:1px;
+}
+#itemInput{flex:1 1 340px;min-width:0}
+button{
+  font:inherit;font-weight:600;cursor:pointer;
+  border-radius:3px;padding:8px 14px;
+  border:1px solid var(--ink);background:var(--ink);color:var(--paper);
+}
+button.ghost{background:transparent;color:var(--ink);border-color:var(--rule)}
+button.ghost:hover{border-color:var(--ink)}
+button:disabled{opacity:.45;cursor:default}
+button.link{
+  background:none;border:none;padding:2px 0;color:var(--ink-soft);
+  font-weight:500;font-size:.82rem;text-decoration:underline;
+  text-underline-offset:3px;
+}
+button.link:hover{color:var(--ink)}
+
+/* ---------- connection ---------- */
+#conn{padding:14px 0;border-bottom:1px solid var(--rule-soft)}
+#conn[hidden]{display:none}
+.conn-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.field label{display:block;font-size:.8rem;color:var(--ink-soft);margin-bottom:4px}
+.field input{width:100%}
+.hint{font-size:.8rem;color:var(--ink-faint);margin:10px 0 0;max-width:62ch}
+.hint a{color:var(--ink-soft)}
+.status{font-size:.85rem;color:var(--ink-soft);margin:12px 0 0;min-height:1.2em}
+.status.bad{color:var(--down)}
+.status.good{color:var(--up)}
+.signin-field{display:flex;align-items:flex-end;gap:8px}
+.signin-field button{height:38px}
+#tokenFallback{margin-top:14px}
+#tokenFallback summary{
+  font-size:.82rem;color:var(--ink-soft);cursor:pointer;
+  text-decoration:underline;text-underline-offset:3px;width:fit-content;
+}
+#tokenFallback summary:focus-visible{outline:2px solid var(--bar);outline-offset:2px}
+
+/* ---------- activity strip ---------- */
+#strip{margin-top:6px}
+.strip-head{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 96px;
+  gap:20px;
+  padding:18px 0 6px;
+  border-bottom:1px solid var(--rule);
+}
+.strip-head span{
+  grid-column:2;text-align:right;
+  font-size:.75rem;font-weight:600;color:var(--ink-soft);line-height:1.2;
+}
+.strip-head[hidden]{display:none}
+.row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 96px;
+  gap:4px 20px;
+  align-items:end;
+  padding:16px 0 12px;
+  border-bottom:1px solid var(--rule-soft);
+}
+.row-head{min-width:0}
+.row-title{
+  font-weight:600;font-size:1rem;letter-spacing:-.01em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.row-title a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rule)}
+.row-title a:hover{border-color:var(--ink)}
+.row-meta{
+  font-size:.78rem;color:var(--ink-faint);
+  display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;margin-top:2px;
+}
+.row-meta code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:.74rem;
+}
+.row-nums{text-align:right}
+.total{font-size:1.5rem;font-weight:700;line-height:1.1;letter-spacing:-.02em}
+.sub{font-size:.75rem;color:var(--ink-faint);white-space:nowrap}
+.delta{font-size:.75rem;font-weight:600;white-space:nowrap}
+.delta.up{color:var(--up)}
+.delta.down{color:var(--down)}
+.delta.flat{color:var(--ink-faint)}
+.row-chart{grid-column:1 / -1;margin-top:10px}
+.row-chart svg{display:block;width:100%;height:56px;overflow:visible}
+.row-chart rect{fill:var(--bar)}
+.row-chart rect.zero{fill:var(--bar-dim)}
+.row-error{
+  grid-column:1 / -1;margin-top:8px;font-size:.85rem;color:var(--down);
+  background:var(--shade);padding:8px 10px;border-radius:3px;
+}
+.row-tools{display:flex;gap:14px;align-items:center;margin-top:8px;grid-column:1 / -1}
+.row-tools select{padding:3px 6px;font-size:.78rem}
+.busy{opacity:.5}
+
+.axis{
+  display:flex;justify-content:space-between;
+  font-size:.75rem;color:var(--ink-faint);padding-top:10px;
+}
+
+/* ---------- empty ---------- */
+.empty{
+  padding:46px 0 40px;max-width:56ch;
+}
+.empty h2{font-size:1.05rem;font-weight:600;margin:0 0 8px}
+.empty p{margin:0 0 10px;color:var(--ink-soft)}
+
+footer{padding-top:22px;font-size:.78rem;color:var(--ink-faint);max-width:70ch}
+
+@media (max-width:560px){
+  .wrap{padding:20px 14px 48px}
+  .row{grid-template-columns:minmax(0,1fr) 80px;gap:2px 12px}
+  .strip-head{grid-template-columns:minmax(0,1fr) 80px;gap:12px}
+  .total{font-size:1.25rem}
+  .window-note{margin-left:0;flex-basis:100%}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Education Item usage, last 30 days</h1>
+  <div class="window-note" id="windowNote"></div>
+</header>
+
+<div class="bar">
+  <input type="text" id="itemInput" placeholder="Paste an item ID or an item page URL" autocomplete="off" spellcheck="false">
+  <button id="addBtn">Track item</button>
+  <button class="ghost" id="refreshBtn">Refresh all</button>
+  <button class="ghost" id="csvBtn">Copy CSV</button>
+  <button class="ghost" id="connBtn">Connection</button>
+</div>
+
+<section id="conn" hidden>
+  <div class="conn-grid">
+    <div class="field">
+      <label for="hostInput">Organization URL</label>
+      <input type="text" id="hostInput" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="userInput">Username</label>
+      <input type="text" id="userInput" autocomplete="username" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="passInput">Password</label>
+      <input type="password" id="passInput" autocomplete="current-password">
+    </div>
+    <div class="field signin-field">
+      <button id="signinBtn">Sign in</button>
+      <button class="ghost" id="signoutBtn" hidden>Sign out</button>
+    </div>
+  </div>
+  <p class="status" id="connStatus"></p>
+  <details id="tokenFallback">
+    <summary>Paste a token instead</summary>
+    <div class="field" style="margin-top:10px;max-width:420px">
+      <label for="tokenInput">Access token</label>
+      <input type="password" id="tokenInput" placeholder="Paste token" autocomplete="off" spellcheck="false">
+    </div>
+    <p class="hint">
+      Use this if your account signs in through your school or district rather than with an
+      ArcGIS username and password. Sign in to ArcGIS Online normally, then generate a token
+      from your organization and paste it here.
+    </p>
+  </details>
+  <p class="hint">
+    Your password is sent only to your ArcGIS organization, in exchange for a temporary token,
+    and is never stored. The token lasts about two hours and lives in this browser tab alone.
+  </p>
+</section>
+
+<div class="strip-head" id="stripHead" hidden><span>Last 30 days</span></div>
+<main id="strip"></main>
+<div class="axis" id="axis" hidden></div>
+
+<footer id="footer"></footer>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var DAY = 86400000;
+var LS_HOST = "agolusage.host";
+var LS_ITEMS = "agolusage.items";
+var LS_SEED = "agolusage.seed";
+var SS_TOKEN = "agolusage.token";
+
+/* Items tracked out of the box. Bump SEED_VERSION when this list changes so
+   existing browsers pick up additions without losing what they've added. */
+var SEED_VERSION = "2";
+var SEED_IDS = [
+  "256f8de43d4c47089e4e4e1fb3436f93",
+  "a7a78d6dd42f42bf846d3c1e6f2d655c",
+  "3b230dd18d994defa6447faab095de8d",
+  "8577791f60544a129cb4408e56e2b287",
+  "9c93f2e4f89b4b3dad0378a1e0b755b7",
+  "3dd4189f9ddd4c21a6cf21bbb36c3423"
+];
+
+var state = {
+  host: "https://education.maps.arcgis.com",
+  token: "",
+  tokenExpires: 0,
+  username: "",
+  items: [],          // {id, title, type, owner, numViews, series, error, loading}
+  start: 0,
+  end: 0
+};
+
+/* ---------- storage (never assume it works) ---------- */
+function readLS(k){ try { return window.localStorage.getItem(k); } catch(e){ return null; } }
+function writeLS(k,v){ try { window.localStorage.setItem(k,v); } catch(e){} }
+function readSS(k){ try { return window.sessionStorage.getItem(k); } catch(e){ return null; } }
+function writeSS(k,v){ try { window.sessionStorage.setItem(k,v); } catch(e){} }
+
+function saveItems(){
+  writeLS(LS_ITEMS, JSON.stringify(state.items.map(function(i){
+    return {id:i.id};
+  })));
+}
+
+/* ---------- window: a rolling 30 days, recomputed on every refresh ---------- */
+function setWindow(){
+  var now = Date.now();
+  state.end = now;
+  state.start = now - 30*DAY;
+}
+
+var fmtInt = new Intl.NumberFormat(undefined);
+var fmtDay = new Intl.DateTimeFormat(undefined,{month:"short",day:"numeric"});
+var fmtFull = new Intl.DateTimeFormat(undefined,{month:"short",day:"numeric",year:"numeric"});
+
+/* ---------- parsing ---------- */
+function parseItemId(raw){
+  if(!raw) return null;
+  var s = String(raw).trim();
+  var m = s.match(/[0-9a-f]{32}/i);
+  return m ? m[0].toLowerCase() : null;
+}
+function parseHost(raw){
+  var s = String(raw||"").trim().replace(/\/+$/,"");
+  if(!s) return "https://education.maps.arcgis.com";
+  if(!/^https?:\/\//i.test(s)) s = "https://" + s;
+  return s.replace(/\/sharing.*$/i,"");
+}
+
+/* Views are the only metric this dashboard reports. */
+var ETYPE = "viewusg";
+
+/* ---------- network ---------- */
+function agolGet(path, params){
+  var url = state.host + "/sharing/rest" + path + "?f=json";
+  Object.keys(params||{}).forEach(function(k){
+    if(params[k] !== undefined && params[k] !== null && params[k] !== "")
+      url += "&" + k + "=" + encodeURIComponent(params[k]);
+  });
+  if(state.token) url += "&token=" + encodeURIComponent(state.token);
+  return fetch(url, {cache:"no-store"}).then(function(r){
+    if(!r.ok) throw new Error("The organization returned HTTP " + r.status + ".");
+    return r.json();
+  }).then(function(j){
+    if(j && j.error){
+      var msg = (j.error.message || "Request rejected.");
+      if(j.error.code === 498 || j.error.code === 499){
+        msg = "Your session expired. Open Connection and sign in again.";
+        state.token = ""; state.tokenExpires = 0;
+        reflectSession();
+      }
+      throw new Error(msg);
+    }
+    return j;
+  }).catch(function(err){
+    if(err instanceof TypeError)
+      throw new Error("Could not reach " + state.host + ". Check the organization URL, and note that the browser blocks the request if your organization does not allow this page's origin.");
+    throw err;
+  });
+}
+
+function fetchMeta(id){
+  return agolGet("/content/items/" + id, {});
+}
+
+function fetchUsage(id){
+  return agolGet("/portals/self/usage", {
+    startTime: state.start,
+    endTime: state.end,
+    period: "1d",
+    vars: "num",
+    etype: ETYPE,
+    name: id,
+    groupby: "name"
+  });
+}
+
+/* The response nests the daily counts a few different ways depending on
+   item type and portal version, so read it defensively. */
+function extractSeries(json){
+  var pairs = null;
+  if(json && Array.isArray(json.data)){
+    for(var i=0;i<json.data.length;i++){
+      var d = json.data[i];
+      if(d && Array.isArray(d.num)){ pairs = d.num; break; }
+      if(d && d.num && Array.isArray(d.num.num)){ pairs = d.num.num; break; }
+    }
+  }
+  if(!pairs && json && Array.isArray(json.num)) pairs = json.num;
+  if(!pairs) return [];
+  return pairs.map(function(p){
+    if(Array.isArray(p)) return {t:Number(p[0]), v:Number(p[1])||0};
+    return {t:Number(p.t||p[0]), v:Number(p.v||p[1])||0};
+  }).filter(function(p){ return isFinite(p.t); })
+    .sort(function(a,b){ return a.t - b.t; });
+}
+
+/* ---------- per-item load ---------- */
+function loadItem(item){
+  item.loading = true;
+  item.error = null;
+  render();
+  return fetchMeta(item.id).then(function(meta){
+    item.title = meta.title || item.id;
+    item.type = meta.type || "";
+    item.owner = meta.owner || "";
+    item.numViews = typeof meta.numViews === "number" ? meta.numViews : null;
+  }).catch(function(err){
+    /* metadata can fail on items you can see usage for but not read; keep going */
+    item.title = item.title || item.id;
+    item.metaNote = err.message;
+  }).then(function(){
+    return fetchUsage(item.id);
+  }).then(function(json){
+    item.series = extractSeries(json);
+    if(!item.series.length) item.error = "No view data came back for this window. The item may have had no activity in the last 30 days.";
+  }).catch(function(err){
+    item.series = [];
+    item.error = err.message;
+  }).then(function(){
+    item.loading = false;
+    render();
+  });
+}
+
+function loadAll(){
+  setWindow();
+  renderWindowNote();
+  /* Six items means twelve requests; run them a few at a time so a large
+     list doesn't hit the organization all at once. */
+  var queue = state.items.slice(), active = 0, MAX = 3;
+  return new Promise(function(resolve){
+    function pump(){
+      if(!queue.length && active === 0) return resolve();
+      while(active < MAX && queue.length){
+        active++;
+        loadItem(queue.shift()).then(function(){ active--; pump(); });
+      }
+    }
+    pump();
+  });
+}
+
+/* ---------- rendering ---------- */
+var stripEl = document.getElementById("strip");
+var axisEl = document.getElementById("axis");
+var footerEl = document.getElementById("footer");
+
+function renderWindowNote(){
+  document.getElementById("windowNote").innerHTML =
+    "<b>" + fmtFull.format(new Date(state.start)) + "</b> to <b>" +
+    fmtFull.format(new Date(state.end)) + "</b>";
+}
+
+function sum(series){ return series.reduce(function(a,p){ return a + p.v; },0); }
+
+function trailingSum(series, days){
+  var cut = state.end - days*DAY;
+  return series.filter(function(p){ return p.t > cut; })
+               .reduce(function(a,p){ return a + p.v; },0);
+}
+
+function globalMax(){
+  var m = 0;
+  state.items.forEach(function(it){
+    (it.series||[]).forEach(function(p){ if(p.v > m) m = p.v; });
+  });
+  return m;
+}
+
+function barChart(series, max){
+  if(!series.length) return "";
+  var n = series.length;
+  var gap = 1.2;
+  var w = 100 / n;
+  var bw = Math.max(w - gap, w * 0.45);
+  var parts = ['<svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img">'];
+  for(var i=0;i<n;i++){
+    var p = series[i];
+    var h = max > 0 ? (p.v / max) * 38 : 0;
+    if(p.v > 0 && h < 1.2) h = 1.2;      /* keep a 1 visible */
+    var zero = p.v === 0;
+    if(zero) h = 0.8;
+    var x = i * w + (w - bw)/2;
+    parts.push('<rect class="' + (zero?"zero":"") + '" x="' + x.toFixed(2) +
+      '" y="' + (39 - h).toFixed(2) + '" width="' + bw.toFixed(2) +
+      '" height="' + h.toFixed(2) + '" rx="0.3">' +
+      '<title>' + fmtDay.format(new Date(p.t)) + ": " + fmtInt.format(p.v) + '</title></rect>');
+  }
+  parts.push('</svg>');
+  return parts.join("");
+}
+
+function esc(s){
+  return String(s==null?"":s).replace(/[&<>"']/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+
+function render(){
+  if(!state.items.length){
+    stripEl.innerHTML =
+      '<div class="empty">' +
+      '<h2>Nothing tracked yet</h2>' +
+      '<p>Paste an item ID or the URL of an item page above and choose Track item. ' +
+      'Each item gets a row showing one bar per day for the trailing 30 days, ' +
+      'recalculated every time you refresh.</p>' +
+      '<p>Set your organization URL and a token under Connection first — ' +
+      'usage figures are not public.</p>' +
+      '</div>';
+    axisEl.hidden = true;
+    document.getElementById("stripHead").hidden = true;
+    renderFooter();
+    return;
+  }
+
+  document.getElementById("stripHead").hidden = false;
+  var gmax = globalMax();
+
+  stripEl.innerHTML = state.items.map(function(it, idx){
+    var series = it.series || [];
+    var total = sum(series);
+    var avg = series.length ? total / series.length : 0;
+    var last7 = trailingSum(series, 7);
+    var prev7 = trailingSum(series, 14) - last7;
+    var deltaHtml = "";
+    if(series.length >= 14 && (last7 || prev7)){
+      var cls, txt;
+      if(prev7 === 0){ cls = "up"; txt = "new activity"; }
+      else {
+        var pct = Math.round(((last7 - prev7) / prev7) * 100);
+        cls = pct > 2 ? "up" : (pct < -2 ? "down" : "flat");
+        txt = (pct > 0 ? "+" : "") + pct + "% vs prior week";
+      }
+      deltaHtml = '<div class="delta ' + cls + '">' + txt + '</div>';
+    }
+
+    var max = gmax;
+
+    var itemUrl = state.host + "/home/item.html?id=" + it.id;
+
+    var meta = [];
+    if(it.type) meta.push(esc(it.type));
+    if(it.owner) meta.push(esc(it.owner));
+    meta.push('<code>' + esc(it.id) + '</code>');
+    if(typeof it.numViews === "number")
+      meta.push(fmtInt.format(it.numViews) + " views all time");
+
+    return '<article class="row' + (it.loading ? " busy" : "") + '" data-idx="' + idx + '">' +
+      '<div class="row-head">' +
+        '<div class="row-title"><a href="' + esc(itemUrl) + '" target="_blank" rel="noopener">' +
+          esc(it.title || it.id) + '</a></div>' +
+        '<div class="row-meta">' + meta.join("<span>·</span>") + '</div>' +
+      '</div>' +
+      '<div class="row-nums">' +
+        '<div class="total">' + (it.loading ? "…" : fmtInt.format(total)) + '</div>' +
+        '<div class="sub">views</div>' +
+        (it.loading ? "" : '<div class="sub">' + avg.toFixed(1) + '/day</div>') +
+        (it.loading ? "" : deltaHtml) +
+      '</div>' +
+      (series.length ? '<div class="row-chart">' + barChart(series, max) + '</div>' : "") +
+      (it.error ? '<div class="row-error">' + esc(it.error) + '</div>' : "") +
+      '<div class="row-tools">' +
+        '<button class="link" data-act="reload" data-idx="' + idx + '">Reload</button>' +
+        '<button class="link" data-act="remove" data-idx="' + idx + '">Stop tracking</button>' +
+      '</div>' +
+    '</article>';
+  }).join("");
+
+  var anySeries = state.items.some(function(i){ return (i.series||[]).length; });
+  if(anySeries){
+    axisEl.hidden = false;
+    axisEl.innerHTML =
+      "<span>" + fmtDay.format(new Date(state.start)) + "</span>" +
+      "<span>" + fmtDay.format(new Date(state.start + 15*DAY)) + "</span>" +
+      "<span>" + fmtDay.format(new Date(state.end)) + "</span>";
+  } else {
+    axisEl.hidden = true;
+  }
+  renderFooter();
+}
+
+function renderFooter(){
+  footerEl.textContent =
+    "A view is counted when someone opens the item. The figures here cover only the " +
+    "trailing 30 days; the all-time number beside each title is ArcGIS Online's cumulative " +
+    "count since the item was created. ArcGIS Online keeps usage history for two years.";
+}
+
+/* ---------- actions ---------- */
+function addItem(raw){
+  var id = parseItemId(raw);
+  var status = document.getElementById("connStatus");
+  if(!id){
+    document.getElementById("conn").hidden = false;
+    status.textContent = "That doesn't contain an item ID. An ID is 32 letters and digits, and appears in an item URL after id=.";
+    status.className = "status bad";
+    return;
+  }
+  if(state.items.some(function(i){ return i.id === id; })) return;
+  var item = {id:id, series:[], loading:false};
+  state.items.push(item);
+  saveItems();
+  render();
+  loadItem(item).then(saveItems);
+}
+
+function toCsv(){
+  var rows = [["item_id","title","type","date","views"]];
+  state.items.forEach(function(it){
+    (it.series||[]).forEach(function(p){
+      rows.push([it.id, it.title||"", it.type||"",
+                 new Date(p.t).toISOString().slice(0,10), p.v]);
+    });
+  });
+  return rows.map(function(r){
+    return r.map(function(c){
+      var s = String(c);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+    }).join(",");
+  }).join("\n");
+}
+
+/* ---------- sign in ---------- */
+var SS_USER = "agolusage.user";
+var SS_EXP  = "agolusage.exp";
+
+function setStatus(text, kind){
+  var s = document.getElementById("connStatus");
+  s.textContent = text || "";
+  s.className = "status" + (kind ? " " + kind : "");
+}
+
+function tokenValid(){
+  return !!state.token && (!state.tokenExpires || state.tokenExpires > Date.now() + 30000);
+}
+
+function fmtClock(ms){
+  return new Intl.DateTimeFormat(undefined,{hour:"numeric",minute:"2-digit"}).format(new Date(ms));
+}
+
+function reflectSession(){
+  var signedIn = tokenValid();
+  document.getElementById("signoutBtn").hidden = !signedIn;
+  document.getElementById("signinBtn").textContent = signedIn ? "Sign in again" : "Sign in";
+  if(signedIn && state.tokenExpires){
+    setStatus((state.username ? "Signed in as " + state.username + ". " : "Signed in. ") +
+      "Session expires at " + fmtClock(state.tokenExpires) + ".", "good");
+  }
+}
+
+function requestToken(user, pass, client){
+  var body = new URLSearchParams();
+  body.set("f","json");
+  body.set("username", user);
+  body.set("password", pass);
+  body.set("expiration","120");
+  if(client === "referer"){
+    body.set("client","referer");
+    body.set("referer", window.location.origin);
+  } else {
+    body.set("client","requestip");
+  }
+  return fetch(state.host + "/sharing/rest/generateToken", {
+    method:"POST",
+    headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body: body.toString()
+  }).then(function(r){ return r.json(); });
+}
+
+function signIn(){
+  var user = document.getElementById("userInput").value.trim();
+  var pass = document.getElementById("passInput").value;
+  state.host = parseHost(document.getElementById("hostInput").value);
+  document.getElementById("hostInput").value = state.host;
+
+  if(!user || !pass){
+    setStatus("Enter both a username and a password.", "bad");
+    return;
+  }
+
+  var btn = document.getElementById("signinBtn");
+  btn.disabled = true;
+  setStatus("Signing in…");
+
+  /* Bind the token to this site's origin. Served over file:// there is no
+     usable origin, and some setups reject referrer binding outright, so fall
+     back to binding by IP. */
+  var canUseReferer = /^https?:$/.test(window.location.protocol) &&
+                      window.location.origin && window.location.origin !== "null";
+
+  requestToken(user, pass, canUseReferer ? "referer" : "requestip")
+  .then(function(j){
+    if(j && j.error && canUseReferer) return requestToken(user, pass, "requestip");
+    return j;
+  })
+  .then(function(j){
+    if(j && j.error){
+      var m = j.error.message || "Sign-in was rejected.";
+      var det = (j.error.details || []).join(" ");
+      if(/invalid username or password/i.test(m + det)){
+        m = "ArcGIS rejected that username or password. If your account signs in through your " +
+            "school or district rather than with an ArcGIS password, this form cannot be used — " +
+            "paste a token instead.";
+      }
+      throw new Error(m + (det && !/invalid username/i.test(m) ? " " + det : ""));
+    }
+    if(!j || !j.token) throw new Error("The organization did not return a token.");
+
+    state.token = j.token;
+    state.tokenExpires = j.expires || (Date.now() + 120*60000);
+    state.username = user;
+
+    writeSS(SS_TOKEN, state.token);
+    writeSS(SS_EXP, String(state.tokenExpires));
+    writeSS(SS_USER, user);
+
+    document.getElementById("passInput").value = "";   /* never keep the password around */
+    reflectSession();
+    return loadAll();
+  }).catch(function(err){
+    if(err instanceof TypeError){
+      setStatus("Could not reach " + state.host + " to sign in. Check the organization URL, " +
+        "and note that the browser blocks the request if the organization does not allow this page's origin.", "bad");
+    } else {
+      setStatus(err.message, "bad");
+    }
+  }).then(function(){
+    btn.disabled = false;
+  });
+}
+
+function signOut(){
+  state.token = ""; state.tokenExpires = 0; state.username = "";
+  try {
+    window.sessionStorage.removeItem(SS_TOKEN);
+    window.sessionStorage.removeItem(SS_EXP);
+    window.sessionStorage.removeItem(SS_USER);
+  } catch(e){}
+  document.getElementById("passInput").value = "";
+  var t = document.getElementById("tokenInput");
+  if(t) t.value = "";
+  reflectSession();
+  setStatus("Signed out. Usage figures will not load until you sign in again.");
+  state.items.forEach(function(it){ it.series = []; it.error = null; });
+  render();
+}
+
+/* ---------- wiring ---------- */
+document.getElementById("addBtn").addEventListener("click", function(){
+  var el = document.getElementById("itemInput");
+  addItem(el.value);
+  el.value = "";
+  el.focus();
+});
+document.getElementById("itemInput").addEventListener("keydown", function(e){
+  if(e.key === "Enter") document.getElementById("addBtn").click();
+});
+document.getElementById("refreshBtn").addEventListener("click", loadAll);
+document.getElementById("connBtn").addEventListener("click", function(){
+  var c = document.getElementById("conn");
+  c.hidden = !c.hidden;
+  if(!c.hidden) document.getElementById("hostInput").focus();
+});
+document.getElementById("csvBtn").addEventListener("click", function(){
+  var btn = this, text = toCsv();
+  var done = function(ok){
+    btn.textContent = ok ? "Copied" : "Copy failed";
+    setTimeout(function(){ btn.textContent = "Copy CSV"; }, 1600);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){done(true);}, function(){done(false);});
+  } else { done(false); }
+});
+
+document.getElementById("hostInput").addEventListener("change", function(){
+  state.host = parseHost(this.value);
+  this.value = state.host;
+  writeLS(LS_HOST, state.host);
+  if(tokenValid()) loadAll();
+});
+document.getElementById("signinBtn").addEventListener("click", signIn);
+document.getElementById("signoutBtn").addEventListener("click", signOut);
+["userInput","passInput"].forEach(function(id){
+  document.getElementById(id).addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ e.preventDefault(); signIn(); }
+  });
+});
+document.getElementById("tokenInput").addEventListener("change", function(){
+  state.token = this.value.trim();
+  state.tokenExpires = 0;
+  state.username = "";
+  writeSS(SS_TOKEN, state.token);
+  if(state.token){
+    setStatus("Token set for this tab. Loading.", "good");
+    loadAll();
+  } else {
+    setStatus("Token cleared.");
+  }
+  reflectSession();
+});
+
+stripEl.addEventListener("click", function(e){
+  var b = e.target.closest("button[data-act]");
+  if(!b) return;
+  var idx = Number(b.dataset.idx), it = state.items[idx];
+  if(!it) return;
+  if(b.dataset.act === "remove"){
+    state.items.splice(idx,1); saveItems(); render();
+  } else if(b.dataset.act === "reload"){
+    loadItem(it);
+  }
+});
+/* ---------- boot ---------- */
+(function init(){
+  var host = readLS(LS_HOST);
+  if(host) state.host = host;
+  document.getElementById("hostInput").value = state.host;
+
+  var tok = readSS(SS_TOKEN);
+  var exp = Number(readSS(SS_EXP) || 0);
+  if(tok){
+    state.token = tok;
+    state.tokenExpires = exp;
+    state.username = readSS(SS_USER) || "";
+    if(!tokenValid()){ state.token = ""; state.tokenExpires = 0; }
+  }
+  document.getElementById("userInput").value = state.username;
+
+  var saved = readLS(LS_ITEMS);
+  if(saved){
+    try {
+      var arr = JSON.parse(saved);
+      if(Array.isArray(arr)) state.items = arr.filter(function(o){ return o && o.id; })
+        .map(function(o){ return {id:o.id, series:[], loading:false}; });
+    } catch(e){}
+  }
+
+  /* Add any seeded items this browser hasn't seen, keeping whatever the
+     person has added or removed since. */
+  if(readLS(LS_SEED) !== SEED_VERSION){
+    SEED_IDS.forEach(function(id){
+      if(!state.items.some(function(i){ return i.id === id; }))
+        state.items.push({id:id, series:[], loading:false});
+    });
+    writeLS(LS_SEED, SEED_VERSION);
+    saveItems();
+  }
+
+  setWindow();
+  renderWindowNote();
+  render();
+  reflectSession();
+
+  if(!tokenValid()){
+    document.getElementById("conn").hidden = false;
+    setStatus(state.username
+      ? "Your session expired. Sign in again to load usage figures."
+      : "Sign in to load usage figures.");
+    document.getElementById(state.username ? "passInput" : "userInput").focus();
+  } else {
+    loadAll();
+  }
+})();
+
+})();
+</script>
+</body>
+</html>
