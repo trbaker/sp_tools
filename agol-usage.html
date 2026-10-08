@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-HZWNB3WHS6"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-HZWNB3WHS6');
+</script>
 <title>Education Item usage, last 30 days</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -107,10 +116,14 @@ button.link:hover{color:var(--ink)}
   padding:18px 0 6px;
   border-bottom:1px solid var(--rule);
 }
-.strip-head span{
-  grid-column:2;text-align:right;
-  font-size:.75rem;font-weight:600;color:var(--ink-soft);line-height:1.2;
+.strip-head select{
+  grid-column:2;justify-self:end;
+  font-family:inherit;font-size:.75rem;font-weight:600;
+  color:var(--ink-soft);background:var(--field);
+  border:1px solid var(--rule);border-radius:3px;
+  padding:3px 4px;max-width:100%;cursor:pointer;
 }
+.strip-head select:hover{color:var(--ink);border-color:var(--ink-soft)}
 .strip-head[hidden]{display:none}
 .row{
   display:grid;
@@ -182,7 +195,7 @@ footer{padding-top:22px;font-size:.78rem;color:var(--ink-faint);max-width:70ch}
 <div class="wrap">
 
 <header>
-  <h1>Education Item usage, last 30 days</h1>
+  <h1>Education Item usage</h1>
   <div class="window-note" id="windowNote"></div>
 </header>
 
@@ -228,7 +241,13 @@ footer{padding-top:22px;font-size:.78rem;color:var(--ink-faint);max-width:70ch}
   </p>
 </section>
 
-<div class="strip-head" id="stripHead" hidden><span>Last 30 days</span></div>
+<div class="strip-head" id="stripHead" hidden>
+  <select id="rangeSel" aria-label="Reporting period">
+    <option value="30d">Last 30 days</option>
+    <option value="month">Last month</option>
+    <option value="ytd">Year to date</option>
+  </select>
+</div>
 <main id="strip"></main>
 <div class="axis" id="axis" hidden></div>
 
@@ -243,6 +262,7 @@ footer{padding-top:22px;font-size:.78rem;color:var(--ink-faint);max-width:70ch}
 var DAY = 86400000;
 var LS_ITEMS = "agolusage.items";
 var LS_SEED = "agolusage.seed";
+var LS_RANGE = "agolusage.range";
 var SS_TOKEN = "agolusage.token";
 
 /* Items tracked out of the box. Bump SEED_VERSION when this list changes so
@@ -260,7 +280,16 @@ var SEED_IDS = [
 /* The one organization this dashboard reports on. */
 var HOST = "https://education.maps.arcgis.com";
 
+/* Reporting periods offered in the column header. */
+var RANGES = {
+  "30d":   "Last 30 days",
+  "month": "Last month",
+  "ytd":   "Year to date"
+};
+
 var state = {
+  range: "30d",
+  days: 30,
   token: "",
   tokenExpires: 0,
   username: "",
@@ -281,11 +310,22 @@ function saveItems(){
   })));
 }
 
-/* ---------- window: a rolling 30 days, recomputed on every refresh ---------- */
+/* ---------- window: recomputed on every load so it never goes stale ---------- */
 function setWindow(){
-  var now = Date.now();
-  state.end = now;
-  state.start = now - 30*DAY;
+  var now = new Date();
+  if(state.range === "ytd"){
+    state.start = new Date(now.getFullYear(), 0, 1).getTime();
+    state.end   = now.getTime();
+  } else if(state.range === "month"){
+    /* the previous calendar month, start to end */
+    state.start = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+    state.end   = new Date(now.getFullYear(), now.getMonth(), 1).getTime() - 1;
+  } else {
+    state.end   = now.getTime();
+    state.start = state.end - 30*DAY;
+  }
+  state.days = Math.max(1, Math.round((state.end - state.start) / DAY));
+  document.title = "Education Item usage, " + RANGES[state.range].toLowerCase();
 }
 
 var fmtInt = new Intl.NumberFormat(undefined);
@@ -335,15 +375,48 @@ function fetchMeta(id){
   return agolGet("/content/items/" + id, {});
 }
 
+/* ArcGIS rejects very wide usage windows, so a long range goes out as
+   several requests and the daily rows are stitched back together. */
+var MAX_SPAN = 55*DAY;
+
+function spanChunks(start, end){
+  var out = [], s = start;
+  while(s < end){
+    var e = Math.min(s + MAX_SPAN, end);
+    out.push([s, e]);
+    s = e + 1;
+  }
+  return out.length ? out : [[start, end]];
+}
+
+function mergeDaily(series){
+  var byDay = Object.create(null);
+  series.forEach(function(p){
+    var k = new Date(p.t).toISOString().slice(0,10);
+    if(!(k in byDay) || p.v > byDay[k].v) byDay[k] = p;
+  });
+  return Object.keys(byDay).map(function(k){ return byDay[k]; })
+    .sort(function(a,b){ return a.t - b.t; });
+}
+
 function fetchUsage(id){
-  return agolGet("/portals/self/usage", {
-    startTime: state.start,
-    endTime: state.end,
-    period: "1d",
-    vars: "num",
-    etype: ETYPE,
-    name: id,
-    groupby: "name"
+  var collected = [];
+  return spanChunks(state.start, state.end).reduce(function(chain, range){
+    return chain.then(function(){
+      return agolGet("/portals/self/usage", {
+        startTime: range[0],
+        endTime: range[1],
+        period: "1d",
+        vars: "num",
+        etype: ETYPE,
+        name: id,
+        groupby: "name"
+      }).then(function(json){
+        collected = collected.concat(extractSeries(json));
+      });
+    });
+  }, Promise.resolve()).then(function(){
+    return mergeDaily(collected);
   });
 }
 
@@ -383,9 +456,11 @@ function loadItem(item){
     item.metaNote = err.message;
   }).then(function(){
     return fetchUsage(item.id);
-  }).then(function(json){
-    item.series = extractSeries(json);
-    if(!item.series.length) item.error = "No view data came back for this window. The item may have had no activity in the last 30 days.";
+  }).then(function(series){
+    item.series = series;
+    if(!item.series.length)
+      item.error = "No view data came back for this period. The item may have had no activity in " +
+                   RANGES[state.range].toLowerCase() + ".";
   }).catch(function(err){
     item.series = [];
     item.error = err.message;
@@ -420,8 +495,8 @@ var footerEl = document.getElementById("footer");
 
 function renderWindowNote(){
   document.getElementById("windowNote").innerHTML =
-    "<b>" + fmtFull.format(new Date(state.start)) + "</b> to <b>" +
-    fmtFull.format(new Date(state.end)) + "</b>";
+    RANGES[state.range] + " · <b>" + fmtFull.format(new Date(state.start)) +
+    "</b> to <b>" + fmtFull.format(new Date(state.end)) + "</b>";
 }
 
 function sum(series){ return series.reduce(function(a,p){ return a + p.v; },0); }
@@ -438,6 +513,25 @@ function globalMax(){
     (it.series||[]).forEach(function(p){ if(p.v > m) m = p.v; });
   });
   return m;
+}
+
+/* A year of daily bars is unreadable at this width, so long ranges are
+   grouped into even buckets. Totals stay exact; only the drawing changes. */
+var MAX_BARS = 60;
+
+function bucketize(series){
+  if(series.length <= MAX_BARS) return series;
+  var size = Math.ceil(series.length / MAX_BARS), out = [];
+  for(var i = 0; i < series.length; i += size){
+    var slice = series.slice(i, i + size);
+    out.push({
+      t: slice[0].t,
+      tEnd: slice[slice.length - 1].t,
+      span: slice.length,
+      v: slice.reduce(function(a,p){ return a + p.v; }, 0)
+    });
+  }
+  return out;
 }
 
 function barChart(series, max){
@@ -457,7 +551,10 @@ function barChart(series, max){
     parts.push('<rect class="' + (zero?"zero":"") + '" x="' + x.toFixed(2) +
       '" y="' + (39 - h).toFixed(2) + '" width="' + bw.toFixed(2) +
       '" height="' + h.toFixed(2) + '" rx="0.3">' +
-      '<title>' + fmtDay.format(new Date(p.t)) + ": " + fmtInt.format(p.v) + '</title></rect>');
+      '<title>' + (p.span > 1
+         ? fmtDay.format(new Date(p.t)) + " to " + fmtDay.format(new Date(p.tEnd))
+         : fmtDay.format(new Date(p.t))) +
+      ": " + fmtInt.format(p.v) + '</title></rect>');
   }
   parts.push('</svg>');
   return parts.join("");
@@ -475,10 +572,9 @@ function render(){
       '<div class="empty">' +
       '<h2>Nothing tracked yet</h2>' +
       '<p>Paste an item ID or the URL of an item page above and choose Track item. ' +
-      'Each item gets a row showing one bar per day for the trailing 30 days, ' +
+      'Each item gets a row of daily view counts for the period chosen above, ' +
       'recalculated every time you refresh.</p>' +
-      '<p>Set your organization URL and a token under Connection first — ' +
-      'usage figures are not public.</p>' +
+      '<p>Sign in under Connection first — usage figures are not public.</p>' +
       '</div>';
     axisEl.hidden = true;
     document.getElementById("stripHead").hidden = true;
@@ -487,16 +583,22 @@ function render(){
   }
 
   document.getElementById("stripHead").hidden = false;
-  var gmax = globalMax();
+
+  /* bucket first, then scale: shared heights must compare like with like */
+  var displays = state.items.map(function(it){ return bucketize(it.series || []); });
+  var gmax = 0;
+  displays.forEach(function(d){ d.forEach(function(p){ if(p.v > gmax) gmax = p.v; }); });
 
   stripEl.innerHTML = state.items.map(function(it, idx){
     var series = it.series || [];
+    var shown = displays[idx];
     var total = sum(series);
-    var avg = series.length ? total / series.length : 0;
+    var avg = total / state.days;
     var last7 = trailingSum(series, 7);
     var prev7 = trailingSum(series, 14) - last7;
     var deltaHtml = "";
-    if(series.length >= 14 && (last7 || prev7)){
+    /* week over week only means something on the rolling window */
+    if(state.range === "30d" && series.length >= 14 && (last7 || prev7)){
       var cls, txt;
       if(prev7 === 0){ cls = "up"; txt = "new activity"; }
       else {
@@ -530,7 +632,7 @@ function render(){
         (it.loading ? "" : '<div class="sub">' + avg.toFixed(1) + '/day</div>') +
         (it.loading ? "" : deltaHtml) +
       '</div>' +
-      (series.length ? '<div class="row-chart">' + barChart(series, max) + '</div>' : "") +
+      (shown.length ? '<div class="row-chart">' + barChart(shown, max) + '</div>' : "") +
       (it.error ? '<div class="row-error">' + esc(it.error) + '</div>' : "") +
       '<div class="row-tools">' +
         '<button class="link" data-act="reload" data-idx="' + idx + '">Reload</button>' +
@@ -544,7 +646,7 @@ function render(){
     axisEl.hidden = false;
     axisEl.innerHTML =
       "<span>" + fmtDay.format(new Date(state.start)) + "</span>" +
-      "<span>" + fmtDay.format(new Date(state.start + 15*DAY)) + "</span>" +
+      "<span>" + fmtDay.format(new Date((state.start + state.end)/2)) + "</span>" +
       "<span>" + fmtDay.format(new Date(state.end)) + "</span>";
   } else {
     axisEl.hidden = true;
@@ -554,9 +656,10 @@ function render(){
 
 function renderFooter(){
   footerEl.textContent =
-    "A view is counted when someone opens the item. The figures here cover only the " +
-    "trailing 30 days; the all-time number beside each title is ArcGIS Online's cumulative " +
-    "count since the item was created. ArcGIS Online keeps usage history for two years.";
+    "A view is counted when someone opens the item. The figures here cover the selected " +
+    "period only; the all-time number beside each title is ArcGIS Online's cumulative count " +
+    "since the item was created. ArcGIS Online keeps usage history for two years, so periods " +
+    "reaching further back than that will come up short.";
 }
 
 /* ---------- actions ---------- */
@@ -726,6 +829,13 @@ document.getElementById("itemInput").addEventListener("keydown", function(e){
   if(e.key === "Enter") document.getElementById("addBtn").click();
 });
 document.getElementById("refreshBtn").addEventListener("click", loadAll);
+document.getElementById("rangeSel").addEventListener("change", function(){
+  state.range = RANGES[this.value] ? this.value : "30d";
+  writeLS(LS_RANGE, state.range);
+  state.items.forEach(function(it){ it.series = []; it.error = null; });
+  if(tokenValid()) loadAll();
+  else { setWindow(); renderWindowNote(); render(); }
+});
 document.getElementById("connBtn").addEventListener("click", function(){
   var c = document.getElementById("conn");
   c.hidden = !c.hidden;
@@ -785,6 +895,10 @@ stripEl.addEventListener("click", function(e){
     if(!tokenValid()){ state.token = ""; state.tokenExpires = 0; }
   }
   document.getElementById("userInput").value = state.username;
+
+  var savedRange = readLS(LS_RANGE);
+  if(savedRange && RANGES[savedRange]) state.range = savedRange;
+  document.getElementById("rangeSel").value = state.range;
 
   var saved = readLS(LS_ITEMS);
   if(saved){
